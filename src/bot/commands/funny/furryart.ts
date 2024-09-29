@@ -1,4 +1,4 @@
-import { CommandInteraction, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
+import { CommandInteraction, EmbedBuilder, SlashCommandBuilder, TextChannel } from 'discord.js';
 
 const tags = [
     "fluffy",
@@ -12,7 +12,6 @@ const tags = [
     "puppy",
     "whiskers",
     "love",
-    "friends",
     "playful",
     "kiss",
     "hugging",
@@ -26,7 +25,8 @@ function getRandomTag(): string {
     return tags[randomIndex];
 }
 
-const url = "https://e926.net/posts.json?tags="; //e926 is sfw 
+const sfw_url = "https://e926.net/posts.json?tags="; //e926 is sfw 
+const nsfw_url = "https://e621.net/posts.json?tags="; //e621 is nsfw 
 
 export const data = new SlashCommandBuilder()
     .setName('furry')
@@ -34,15 +34,24 @@ export const data = new SlashCommandBuilder()
     .addBooleanOption(option => 
         option.setName('straight')
             .setDescription('Should art be straight only or not?')
+            .setRequired(false))
+    .addBooleanOption(option => 
+        option.setName('nsfw')
+            .setDescription('Should art be nsfw or not?')
             .setRequired(false));
 
 export const execute = async (interaction: CommandInteraction) => {
     await interaction.deferReply(); 
 
     const straightOption = interaction.options.getBoolean('straight');
-    console.log(straightOption)
+    const nsfwOption = interaction.options.getBoolean('nsfw');
 
-    const post = await fetchData(straightOption);
+    if (nsfwOption && !((interaction.channel as TextChannel).nsfw)) {
+        await interaction.editReply({ content: "You may only use NSFW in a NSFW channel."})
+        return;
+    } 
+
+    const post = await fetchData(nsfwOption, straightOption);
     if (post == null) {
         await interaction.editReply({ content: "Could not find any art, try again!" });
         return;
@@ -57,11 +66,10 @@ export const execute = async (interaction: CommandInteraction) => {
     });
 };
 
-async function fetchData(straight: any): Promise<any | null> {
+async function fetchData(nsfw: boolean, straight: boolean): Promise<any | null> {
     try {
         var tag = getRandomTag();
-        console.log(tag);
-        const response = await fetch(url + (straight ? "" : "gay ") + tag, {
+        const response = await fetch((nsfw ? nsfw_url : sfw_url) + (straight ? "straight" : "gay ") + tag, {
             method: 'GET',
             headers: {
                 'User-Agent': 'SkittyBetty' 
